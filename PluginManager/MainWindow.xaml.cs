@@ -15,11 +15,7 @@ namespace PluginManager
     public partial class MainWindow : Window
     {
         private readonly Scanner _scanner = new Scanner();
-
-        // 1. Raw Data (File based)
         private List<PluginFile> _rawFiles = new List<PluginFile>();
-
-        // 2. View Data (Item based)
         private List<PluginItem> _viewData = new List<PluginItem>();
         private AppSettingsModel _settings;
 
@@ -27,59 +23,55 @@ namespace PluginManager
         {
             InitializeComponent();
             LoadConfig();
-            ToggleLocationColumn(false); // Default hidden
+            ToggleLocationColumn(false);
         }
 
         private async void BtnScan_Click(object sender, RoutedEventArgs e)
+        {
+            await ScanAndDisplay();
+        }
+
+        private async Task ScanAndDisplay()
         {
             BtnScan.IsEnabled = false;
             LblStatus.Text = "Scanning...";
             SaveCurrentConfig();
 
-            // Run Scan
             _rawFiles = await Task.Run(() => _scanner.ScanPaths(_settings.SearchPaths, _settings.Extensions));
 
-            LblStatus.Text = $"Found {_rawFiles.Count} files.";
+            UpdateTotalCount();
             BtnScan.IsEnabled = true;
 
-            // Process Display
             UpdateListDisplay();
         }
 
         private void UpdateListDisplay()
         {
             if (_rawFiles == null) return;
-
             string query = TxtSearch.Text.Trim().ToLower();
             bool showDetails = ChkDetails.IsChecked == true;
 
-            // A. Filter
-            var filtered = string.IsNullOrEmpty(query)
-                ? _rawFiles
-                : _rawFiles.Where(f => f.Name.ToLower().Contains(query)).ToList();
+            var filtered = string.IsNullOrEmpty(query) ? _rawFiles : _rawFiles.Where(f => f.Name.ToLower().Contains(query));
 
+            if (_settings.ExcludedNames != null)
+                filtered = filtered.Where(f => !_settings.ExcludedNames.Contains(f.Name));
+
+            if (_settings.ExcludedPaths != null)
+                filtered = filtered.Where(f => !_settings.ExcludedPaths.Contains(f.FullPath));
+
+            var resultList = filtered.ToList();
             _viewData.Clear();
 
-            // B. Convert to PluginItem
             if (showDetails)
             {
-                // DETAILED MODE: 1 File = 1 Row. Location is VISIBLE.
-                foreach (var f in filtered.OrderBy(x => x.Name))
+                foreach (var f in resultList.OrderBy(x => x.Name))
                 {
-                    _viewData.Add(new PluginItem
-                    {
-                        Name = f.Name,
-                        Formats = f.Format,
-                        LastUpdated = f.LastWriteTime,
-                        Location = f.FullPath // Show path
-                    });
+                    _viewData.Add(new PluginItem { Name = f.Name, Formats = f.Format, LastUpdated = f.LastWriteTime, Location = f.FullPath });
                 }
             }
             else
             {
-                // UNIQUE MODE: Group by Name. Location is HIDDEN/EMPTY.
-                var grouped = filtered.GroupBy(f => f.Name);
-
+                var grouped = resultList.GroupBy(f => f.Name);
                 foreach (var g in grouped.OrderBy(x => x.Key))
                 {
                     _viewData.Add(new PluginItem
@@ -87,14 +79,13 @@ namespace PluginManager
                         Name = g.Key,
                         Formats = string.Join(", ", g.Select(x => x.Format).Distinct().OrderBy(x => x)),
                         LastUpdated = g.Max(x => x.LastWriteTime),
-                        Location = "" // Keep empty so Export is clean
+                        Location = ""
                     });
                 }
             }
 
             GridPlugins.ItemsSource = null;
             GridPlugins.ItemsSource = _viewData;
-
             ToggleLocationColumn(showDetails);
         }
 
@@ -104,24 +95,75 @@ namespace PluginManager
                 GridPlugins.Columns[3].Visibility = isVisible ? Visibility.Visible : Visibility.Collapsed;
         }
 
-        // --- Interaction Events ---
 
-        private void TxtSearch_TextChanged(object sender, TextChangedEventArgs e) => UpdateListDisplay();
-        private void ChkDetails_Changed(object sender, RoutedEventArgs e) => UpdateListDisplay();
-
-        private void Location_Click(object sender, MouseButtonEventArgs e)
+        private void GridPlugins_LoadingRow(object sender, DataGridRowEventArgs e)
         {
-            if (sender is TextBlock tb && !string.IsNullOrEmpty(tb.Text))
+            var contextMenu = new ContextMenu();
+
+            // 1. Global Exclude (Always Enabled)
+            var item1 = new MenuItem { Header = "Exclude Name (Global)" };
+            item1.Click += CtxExcludeName_Click;
+            contextMenu.Items.Add(item1);
+
+            // 2. Specific Exclude (Disabled in Unique Mode)
+            var item2 = new MenuItem { Header = "Exclude This Path (Specific)" };
+            item2.Click += CtxExcludePath_Click;
+
+            // IF we are NOT showing details, disable this option
+            if (ChkDetails.IsChecked == false)
             {
-                try
+                item2.IsEnabled = false;
+                item2.Header += " (Requires Details View)"; // Optional: explains why
+            }
+
+            contextMenu.Items.Add(item2);
+
+            e.Row.ContextMenu = contextMenu;
+        }
+
+        private void CtxExcludeName_Click(object sender, RoutedEventArgs e)
+        {
+            // Get the Item from the MenuItem's DataContext
+            if (sender is MenuItem menuItem && menuItem.DataContext is PluginItem item)
+            {
+                if (!_settings.ExcludedNames.Contains(item.Name))
                 {
-                    Process.Start("explorer.exe", $"/select,\"{tb.Text}\"");
+                    _settings.ExcludedNames.Add(item.Name);
+                    SettingsManager.Save(_settings);
+                    UpdateTotalCount();
+                    UpdateListDisplay();
                 }
-                catch { }
             }
         }
 
-        // --- Config & Export ---
+        private void CtxExcludePath_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem menuItem && menuItem.DataContext is PluginItem item)
+            {
+                if (!string.IsNullOrEmpty(item.Location))
+                {
+                    if (!_settings.ExcludedPaths.Contains(item.Location))
+                    {
+                        _settings.ExcludedPaths.Add(item.Location);
+                        SettingsManager.Save(_settings);
+                        UpdateListDisplay();
+                        UpdateListDisplay();
+                    }
+                }
+                else
+                {
+                    MessageBox.Show("Please switch to 'Show File Details' to exclude a specific path.", "Mode Warning");
+                }
+            }
+        }
+
+        private void TxtSearch_TextChanged(object sender, TextChangedEventArgs e) => UpdateListDisplay();
+        private void ChkDetails_Changed(object sender, RoutedEventArgs e) => UpdateListDisplay();
+        private void Location_Click(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is TextBlock tb && !string.IsNullOrEmpty(tb.Text))
+                try { Process.Start("explorer.exe", $"/select,\"{tb.Text}\""); } catch { }
+        }
 
         private void LoadConfig()
         {
@@ -154,11 +196,19 @@ namespace PluginManager
                     LblStatus.Foreground = Brushes.LightGreen;
                     Process.Start(new ProcessStartInfo(dlg.FileName) { UseShellExecute = true });
                 }
-                catch (Exception ex)
-                {
-                    MessageBox.Show(ex.Message);
-                }
+                catch (Exception ex) { MessageBox.Show(ex.Message); }
             }
+        }
+
+        private void UpdateTotalCount()
+        {
+            if (_rawFiles == null) return;
+            // Count only files that are NOT in the exclude lists
+            int validCount = _rawFiles.Count(f =>
+                !_settings.ExcludedNames.Contains(f.Name) &&
+                !_settings.ExcludedPaths.Contains(f.FullPath));
+
+            LblStatus.Text = $"Found {validCount} files.";
         }
     }
 }

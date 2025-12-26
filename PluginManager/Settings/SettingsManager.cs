@@ -1,7 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
+﻿using System.IO;
 using System.Text.Json;
+using System.Collections.Generic;
 
 namespace PluginManager
 {
@@ -15,7 +14,13 @@ namespace PluginManager
             try
             {
                 string json = File.ReadAllText(FilePath);
-                return JsonSerializer.Deserialize<AppSettingsModel>(json);
+                var settings = JsonSerializer.Deserialize<AppSettingsModel>(json);
+
+                // Safety check for null lists
+                if (settings.ExcludedNames == null) settings.ExcludedNames = new List<string>();
+                if (settings.ExcludedPaths == null) settings.ExcludedPaths = new List<string>();
+
+                return settings;
             }
             catch { return AppSettingsModel.Default(); }
         }

@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
 
 namespace PluginManager
 {
@@ -10,6 +6,10 @@ namespace PluginManager
     {
         public List<string> SearchPaths { get; set; } = new List<string>();
         public List<string> Extensions { get; set; } = new List<string>();
+
+        // NEW: Exclusion Lists
+        public List<string> ExcludedNames { get; set; } = new List<string>();
+        public List<string> ExcludedPaths { get; set; } = new List<string>();
 
         public static AppSettingsModel Default()
         {
@@ -22,7 +22,9 @@ namespace PluginManager
                     @"C:\Program Files\VstPlugins",
                     @"C:\Program Files\Steinberg\VstPlugins"
                 },
-                Extensions = new List<string> { ".vst3", ".dll", ".clap", ".aaxplugin" }
+                Extensions = new List<string> { ".vst3", ".dll", ".clap", ".aaxplugin" },
+                ExcludedNames = new List<string> { "Microsoft.Web.WebView2.Core" },
+                ExcludedPaths = new List<string>()
             };
         }
     }

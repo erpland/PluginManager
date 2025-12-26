@@ -88,7 +88,6 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
-
     </Window.Resources>
 
     <Grid>
@@ -107,9 +106,7 @@
                 </Grid.RowDefinitions>
 
                 <TextBlock Text="SEARCH FOLDERS" Foreground="#AAA" FontWeight="Bold" Margin="0,0,0,10"/>
-
-                <TextBox x:Name="TxtPaths" Grid.Row="1" AcceptsReturn="True" FontFamily="Consolas" 
-                         VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
+                <TextBox x:Name="TxtPaths" Grid.Row="1" AcceptsReturn="True" FontFamily="Consolas" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
 
                 <StackPanel Grid.Row="2" Margin="0,15,0,0">
                     <TextBlock Text="EXTENSIONS" Foreground="#AAA" FontWeight="Bold" Margin="0,0,0,5"/>
@@ -144,7 +141,7 @@
             </StackPanel>
 
             <DataGrid x:Name="GridPlugins" Grid.Row="2" AutoGenerateColumns="False" IsReadOnly="True" 
-                      HeadersVisibility="Column" 
+                      HeadersVisibility="Column" LoadingRow="GridPlugins_LoadingRow"
                       Background="Transparent" RowBackground="Transparent" Foreground="{StaticResource TextMain}"
                       GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#444" BorderThickness="0" RowHeight="35"
                       SelectionMode="Single" SelectionUnit="FullRow"
@@ -184,7 +181,6 @@
                     <DataGridTextColumn Header="NAME" Binding="{Binding Name}" Width="220" FontWeight="SemiBold"/>
                     <DataGridTextColumn Header="FORMATS" Binding="{Binding Formats}" Width="120"/>
                     <DataGridTextColumn Header="UPDATED" Binding="{Binding LastUpdatedStr}" Width="100"/>
-
                     <DataGridTemplateColumn Header="LOCATION" Width="*">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
@@ -195,6 +191,7 @@
                     </DataGridTemplateColumn>
                 </DataGrid.Columns>
             </DataGrid>
+
             <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
                 <CheckBox x:Name="ChkDetails" Content="Show File Details" 
                           Checked="ChkDetails_Changed" Unchecked="ChkDetails_Changed" 
@@ -204,7 +201,6 @@
                     </CheckBox.LayoutTransform>
                 </CheckBox>
             </StackPanel>
-
         </Grid>
     </Grid>
 </Window>
