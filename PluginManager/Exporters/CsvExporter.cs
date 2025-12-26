@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 namespace PluginManager.Exporters
@@ -11,13 +12,29 @@ namespace PluginManager.Exporters
         public void Export(List<PluginItem> plugins, string filePath)
         {
             var sb = new StringBuilder();
-            // Header
-            sb.AppendLine("Name,Formats,LastUpdated");
+            bool includeLocation = plugins.Any(p => !string.IsNullOrEmpty(p.Location));
 
+            // 1. Headers
+            sb.Append("Name,Formats,LastUpdated");
+            if (includeLocation) sb.Append(",Location");
+            sb.AppendLine();
+
+            // 2. Rows
             foreach (var p in plugins)
             {
-                // Escape quotes if necessary, though simple plugin names rarely have them
-                sb.AppendLine($"\"{p.Name}\",\"{p.Formats}\",{p.LastUpdatedStr}");
+                // Escape quotes for CSV safety
+                string safeName = $"\"{p.Name.Replace("\"", "\"\"")}\"";
+                string safeFormats = $"\"{p.Formats}\"";
+
+                sb.Append($"{safeName},{safeFormats},{p.LastUpdatedStr}");
+
+                if (includeLocation)
+                {
+                    string safeLoc = $"\"{p.Location?.Replace("\"", "\"\"")}\"";
+                    sb.Append($",{safeLoc}");
+                }
+
+                sb.AppendLine();
             }
 
             File.WriteAllText(filePath, sb.ToString());

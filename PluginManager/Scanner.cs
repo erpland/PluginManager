@@ -2,75 +2,51 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace PluginManager
 {
     public class Scanner
     {
-        private readonly HashSet<string> _extensions = new HashSet<string> { ".vst3", ".dll", ".clap", ".aaxplugin" };
-
-        public List<PluginItem> ScanPaths(IEnumerable<string> paths)
+        public List<PluginFile> ScanPaths(List<string> searchPaths, List<string> validExtensions)
         {
-            var rawFiles = new List<FileInfo>();
+            var results = new List<PluginFile>();
+            var extSet = new HashSet<string>(validExtensions.Select(e => e.ToLower().Trim()));
 
-            foreach (var path in paths)
+            foreach (var path in searchPaths)
             {
-                if (Directory.Exists(path))
+                if (!Directory.Exists(path)) continue;
+                try
                 {
-                    try
-                    {
-                        var dir = new DirectoryInfo(path);
-                        // Scan for files recursively
-                        // NOTE: effectively ignores .vst3 folders, grabs the binary inside, or the bundle file
-                        var files = dir.EnumerateFiles("*.*", SearchOption.AllDirectories)
-                                       .Where(f => _extensions.Contains(f.Extension.ToLower()));
-                        rawFiles.AddRange(files);
-                    }
-                    catch { /* Skip permission errors */ }
-                }
-            }
+                    var dir = new DirectoryInfo(path);
+                    var files = dir.EnumerateFiles("*.*", SearchOption.AllDirectories)
+                                   .Where(f => extSet.Contains(f.Extension.ToLower()));
 
-            return GroupPlugins(rawFiles);
+                    foreach (var f in files)
+                    {
+                        results.Add(new PluginFile
+                        {
+                            Name = Path.GetFileNameWithoutExtension(f.Name),
+                            Extension = f.Extension.ToLower(),
+                            Format = DetectFormat(f.FullName),
+                            FullPath = f.FullName,
+                            LastWriteTime = f.LastWriteTime
+                        });
+                    }
+                }
+                catch { }
+            }
+            return results;
         }
 
-        private List<PluginItem> GroupPlugins(List<FileInfo> files)
+        private string DetectFormat(string path)
         {
-            // Group by filename without extension
-            var grouped = files.GroupBy(f => Path.GetFileNameWithoutExtension(f.Name));
-            var results = new List<PluginItem>();
+            if (path.EndsWith(".vst3", StringComparison.OrdinalIgnoreCase)) return "VST3";
+            if (path.EndsWith(".clap", StringComparison.OrdinalIgnoreCase)) return "CLAP";
+            if (path.EndsWith(".aaxplugin", StringComparison.OrdinalIgnoreCase)) return "AAX";
+            if (path.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+                return path.IndexOf("x86", StringComparison.OrdinalIgnoreCase) >= 0 ? "VST2 (32)" : "VST2 (64)";
 
-            foreach (var group in grouped)
-            {
-                var formats = new HashSet<string>();
-                DateTime lastMod = DateTime.MinValue;
-
-                foreach (var f in group)
-                {
-                    string ext = f.Extension.ToLower();
-
-                    if (ext == ".vst3") formats.Add("VST3");
-                    else if (ext == ".clap") formats.Add("CLAP");
-                    else if (ext == ".aaxplugin") formats.Add("AAX");
-                    else if (ext == ".dll")
-                    {
-                        if (f.FullName.Contains("x86")) formats.Add("VST2 (32)");
-                        else formats.Add("VST2 (64)");
-                    }
-
-                    if (f.LastWriteTime > lastMod) lastMod = f.LastWriteTime;
-                }
-
-                results.Add(new PluginItem
-                {
-                    Name = group.Key,
-                    Formats = string.Join(", ", formats.OrderBy(x => x)),
-                    LastUpdated = lastMod
-                });
-            }
-
-            return results.OrderBy(x => x.Name).ToList();
+            return path.Split('.').Last().ToUpper();
         }
     }
 }

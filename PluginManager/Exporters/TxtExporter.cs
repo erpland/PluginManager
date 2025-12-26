@@ -11,12 +11,10 @@ namespace PluginManager.Exporters
         public void Export(List<PluginItem> plugins, string filePath)
         {
             var sb = new StringBuilder();
-
             foreach (var p in plugins)
             {
                 sb.AppendLine(p.Name);
             }
-
             File.WriteAllText(filePath, sb.ToString());
         }
     }
