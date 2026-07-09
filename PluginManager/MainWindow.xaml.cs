@@ -203,12 +203,16 @@ namespace PluginManager
         private void UpdateTotalCount()
         {
             if (_rawFiles == null) return;
-            // Count only files that are NOT in the exclude lists
             int validCount = _rawFiles.Count(f =>
                 !_settings.ExcludedNames.Contains(f.Name) &&
                 !_settings.ExcludedPaths.Contains(f.FullPath));
 
             LblStatus.Text = $"Found {validCount} files.";
+        }
+
+        private async void Window_Loaded(object sender, RoutedEventArgs e)
+        {
+            await ScanAndDisplay();
         }
     }
 }

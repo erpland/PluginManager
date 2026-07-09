@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Plugin Manager" Height="750" Width="1100"
         Background="#363B40" Foreground="#F8F8F2"
-        WindowStartupLocation="CenterScreen">
+        WindowStartupLocation="CenterScreen" Loaded="Window_Loaded">
 
     <Window.Resources>
         <SolidColorBrush x:Key="BgSide" Color="#30353A"/>
